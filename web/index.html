@@ -312,6 +312,23 @@
             <label class="switch"><input type="checkbox" id="set-space" /><span class="slider"></span></label>
           </div>
 
+          <div class="panel toggle-card">
+            <div>
+              <label>Always-on: слушать без кнопки</label>
+              <p class="muted sm">Скажи слово-обращение (напр. «Клод») — Vox среагирует без нажатия F7. Использует Whisper tiny на CPU.</p>
+            </div>
+            <label class="switch"><input type="checkbox" id="set-always-on" /><span class="slider"></span></label>
+          </div>
+
+          <div class="panel field" id="wake-model-row">
+            <label>Модель always-on</label>
+            <select id="set-wake-model">
+              <option value="tiny">tiny — быстрее, чуть хуже</option>
+              <option value="base">base — лучше, чуть медленнее</option>
+            </select>
+            <p class="muted sm">Загружается отдельно на CPU; не влияет на основную модель.</p>
+          </div>
+
           <div class="panel field">
             <label>Порог нечёткого поиска команд (%)</label>
             <p class="muted sm">Если фраза похожа на команду на N% — выполняется. 100 = только точное совпадение.</p>

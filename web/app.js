@@ -131,6 +131,9 @@ function applyConfigToUI() {
   $("#set-sound-cmd").checked = !!c.sound_on_command;
   $("#set-sound-dict").checked = !!c.sound_on_dictation;
   $("#set-space").checked = !!c.add_trailing_space;
+  $("#set-always-on").checked = !!c.wake_always_on;
+  $("#set-wake-model").value = c.wake_model || "tiny";
+  $("#wake-model-row").style.display = c.wake_always_on ? "" : "none";
 
   // clipboard hotkey
   const clipLabel = c.clipboard_hotkey_label || friendlyKey(c.clipboard_hotkey || "f9");
@@ -349,6 +352,8 @@ function collectSettings() {
   c.sound_on_command = $("#set-sound-cmd").checked;
   c.sound_on_dictation = $("#set-sound-dict").checked;
   c.add_trailing_space = $("#set-space").checked;
+  c.wake_always_on = $("#set-always-on").checked;
+  c.wake_model = $("#set-wake-model").value || "tiny";
 }
 
 async function persist(after) {
@@ -395,6 +400,9 @@ $("#cmd-save").addEventListener("click", saveCommand);
 $("#cmd-add-action").addEventListener("click", addAction);
 $("#cmd-modal").addEventListener("click", (e) => {
   if (e.target.id === "cmd-modal") closeCmdModal();
+});
+$("#set-always-on").addEventListener("change", (e) => {
+  $("#wake-model-row").style.display = e.target.checked ? "" : "none";
 });
 $("#save-settings").addEventListener("click", saveSettings);
 $("#save-autopilot").addEventListener("click", saveAutopilot);

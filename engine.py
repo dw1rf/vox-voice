@@ -43,6 +43,9 @@ DEFAULT_CONFIG = {
     "clipboard_hotkey": "f9",
     "clipboard_hotkey_label": "F9",
     "fuzzy_threshold": 80,
+    "wake_always_on": False,
+    "wake_model": "tiny",
+    "wake_listen_sec": 5,
     "samplerate": 16000,
     "add_trailing_space": True,
     "initial_prompt": "Клод, Яндекс, Гитхаб, Эдж, Ютуб",
@@ -468,10 +471,51 @@ class DictationEngine:
             except Exception as e:
                 self._log("info", f"Clipboard popup ошибка: {e}")
 
+        # ── Always-on wake word detector ─────────────────────────────────────
+        _wake_detector = None
+        if self.cfg.get("wake_always_on"):
+            try:
+                from wake_detector import WakeWordDetector
+                ap_cfg2 = self.cfg.get("autopilot", {})
+                wake_words = ap_cfg2.get("wake_words") or ["клод"]
+                wake_model = self.cfg.get("wake_model", "tiny")
+                listen_sec = float(self.cfg.get("wake_listen_sec", 5))
+
+                def on_wake(rest: str):
+                    """Вызывается из потока детектора когда слово-обращение услышано."""
+                    play_sound("command")
+                    if rest:
+                        # Команда уже в той же фразе: «Клод, открой ютуб»
+                        threading.Thread(target=handle, args=(rest, 0), daemon=True).start()
+                    else:
+                        # Только обращение: «Клод» → открываем окно записи на listen_sec
+                        if self._recording.is_set() or not self._busy.acquire(blocking=False):
+                            return
+                        self._frames.clear()
+                        self._recording.set()
+                        self._emit_status("recording", "Слушаю…")
+
+                        def _auto_stop():
+                            time.sleep(listen_sec)
+                            stop_and_process()
+                        threading.Thread(target=_auto_stop, daemon=True).start()
+
+                _wake_detector = WakeWordDetector(
+                    wake_words=wake_words,
+                    on_wake=on_wake,
+                    model_size=wake_model,
+                    samplerate=samplerate,
+                )
+                _wake_detector.start()
+                self._log("info", f"Always-on: детектор «{wake_words[0]}» запущен (модель {wake_model}).")
+            except Exception as e:
+                self._log("info", f"Always-on: не удалось запустить детектор ({e}).")
+
         self._emit_status("ready", "")
         hk_label = self.cfg.get("hotkey_label") or str(self.cfg["hotkey"]).upper()
         clip_label = self.cfg.get("clipboard_hotkey_label") or str(self.cfg.get("clipboard_hotkey", "F9")).upper()
-        self._log("info", f"Готово. Зажми [{hk_label}] и говори. Clipboard AI: [{clip_label}].")
+        ao_hint = " | Always-on: активен" if _wake_detector else ""
+        self._log("info", f"Готово. Зажми [{hk_label}] и говори. Clipboard AI: [{clip_label}].{ao_hint}")
         prev = False
         clip_prev = False
         try:
@@ -481,6 +525,8 @@ class DictationEngine:
                     self._frames.clear()
                     self._recording.set()
                     self._emit_status("recording", "Запись…")
+                    if _wake_detector:
+                        _wake_detector.pause(3.0)  # не триггерим пока держим кнопку
                 elif not cur and prev:
                     stop_and_process()
                 prev = cur
@@ -492,6 +538,8 @@ class DictationEngine:
 
                 time.sleep(0.02)
         finally:
+            if _wake_detector:
+                _wake_detector.stop()
             stream.stop()
             stream.close()
             self._emit_status("stopped", "Остановлено")
