@@ -96,6 +96,36 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "take_screenshot",
+            "description": (
+                "Сделать скриншот экрана и описать что на нём видно. "
+                "Используй когда пользователь спрашивает что на экране, "
+                "просит проанализировать или прочитать содержимое экрана."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "set_reminder",
+            "description": (
+                "Установить напоминание через N секунд. "
+                "Примеры: через 10 минут = 600 секунд, через 30 секунд = 30."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "seconds": {"type": "integer", "description": "Через сколько секунд напомнить"},
+                    "message": {"type": "string", "description": "Текст напоминания"},
+                },
+                "required": ["seconds", "message"],
+            },
+        },
+    },
 ]
 
 SYSTEM_PROMPT = (
@@ -111,11 +141,13 @@ SYSTEM_PROMPT = (
 
 # Понятные названия инструментов для лога.
 TOOL_LABELS = {
-    "open_url": "открыть сайт",
-    "web_search": "поиск",
-    "run_app": "запустить",
-    "press_keys": "клавиши",
-    "type_text": "напечатать",
+    "open_url":       "открыть сайт",
+    "web_search":     "поиск",
+    "run_app":        "запустить",
+    "press_keys":     "клавиши",
+    "type_text":      "напечатать",
+    "take_screenshot":"скриншот",
+    "set_reminder":   "напоминание",
 }
 
 
@@ -234,6 +266,13 @@ class AutopilotAgent:
             if name == "type_text":
                 self.executors["type_text"](args.get("text", ""))
                 return "напечатано"
+            if name == "take_screenshot":
+                return self._take_screenshot_and_describe()
+            if name == "set_reminder":
+                seconds = int(args.get("seconds", 60))
+                message = args.get("message", "Напоминание!")
+                self._set_reminder(seconds, message)
+                return f"напоминание через {seconds} с: {message}"
             return f"неизвестный инструмент: {name}"
         except Exception as e:
             return f"ошибка: {e}"
@@ -315,6 +354,76 @@ class AutopilotAgent:
         if not did_action:
             self._log("info", "Автопилот: подходящих действий не найдено.")
         self._status("ready", "")
+
+    def _take_screenshot_and_describe(self) -> str:
+        """Скриншот → base64 → vision-запрос к Groq (llama-4-scout / llava)."""
+        try:
+            import tempfile, base64
+            from PIL import ImageGrab
+            img = ImageGrab.grab()
+            # Уменьшаем до разумного размера чтобы не превышать лимиты API
+            img.thumbnail((1280, 720))
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False, prefix="vox_sc_") as f:
+                tmp = f.name
+            img.save(tmp, "JPEG", quality=75)
+            with open(tmp, "rb") as f:
+                b64 = base64.b64encode(f.read()).decode("ascii")
+            try:
+                os.unlink(tmp)
+            except Exception:
+                pass
+
+            # Vision через Groq (llama-4-scout-17b-16e-instruct поддерживает изображения)
+            key = self.cfg.get("api_key") or os.environ.get("GROQ_API_KEY", "")
+            if not key:
+                return "Скриншот сделан, но Groq API-ключ не задан — описание недоступно."
+
+            body = json.dumps({
+                "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+                "messages": [{
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url",
+                         "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
+                        {"type": "text",
+                         "text": "Опиши кратко что видишь на экране. Отвечай по-русски, 2-4 предложения."},
+                    ],
+                }],
+                "temperature": 0.3,
+            }).encode("utf-8")
+            req = urllib.request.Request(
+                "https://api.groq.com/openai/v1/chat/completions", data=body,
+                headers={"Content-Type": "application/json",
+                         "Authorization": "Bearer " + key,
+                         "User-Agent": "WhisperDictation/1.0 (+python-urllib)"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                data = json.loads(r.read().decode("utf-8"))
+            return data["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            return f"Ошибка скриншота: {e}"
+
+    def _set_reminder(self, seconds: int, message: str):
+        """Показать Windows toast-уведомление через N секунд + голос."""
+        def _fire():
+            time.sleep(max(1, seconds))
+            # Windows toast через PowerShell
+            safe_msg = message.replace("'", "")
+            try:
+                import subprocess as _sp
+                _sp.Popen([
+                    "powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command",
+                    f"[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType=WindowsRuntime] | Out-Null;"
+                    f"$t = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText01);"
+                    f"$t.SelectSingleNode('//text[@id=1]').InnerText = 'Vox: {safe_msg}';"
+                    f"[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Vox').Show([Windows.UI.Notifications.ToastNotification]::new($t));",
+                ], creationflags=subprocess.CREATE_NO_WINDOW)
+            except Exception:
+                pass
+            # Голосовое напоминание
+            if self.cfg.get("tts_enabled"):
+                self._speak(f"Напоминание: {message}")
+            self._log("info", f"Напоминание: {message}")
+        threading.Thread(target=_fire, daemon=True).start()
 
     def _speak(self, text: str):
         from tts import speak
