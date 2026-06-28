@@ -80,6 +80,8 @@ DEFAULT_CONFIG = {
         "wake_words": ["клод", "клода", "клот", "слушай"],
         "max_iterations": 5,
         "tts_enabled": False,
+        "tts_voice": "ru-RU-SvetlanaNeural",
+        "tts_on_dictation": False,
     },
 }
 
@@ -359,6 +361,9 @@ class DictationEngine:
                     if hit[0] != norm:
                         self._log("info", f"~fuzzy: «{norm}» → «{hit[0]}» ({hit[1]}%)")
 
+            ap_tts = self.cfg.get("autopilot", {}).get("tts_enabled", False)
+            tts_voice = self.cfg.get("autopilot", {}).get("tts_voice", "ru-RU-SvetlanaNeural")
+
             if matched_key is not None:
                 cmd = self.commands[matched_key]
                 self._log("command", text, ms)
@@ -366,11 +371,17 @@ class DictationEngine:
                 if snd if snd is not None else self.cfg.get("sound_on_command", True):
                     play_sound("command")
                 run_command_set(cmd)
+                if ap_tts:
+                    from tts import speak as _tts_speak
+                    _tts_speak(matched_key, tts_voice)
             else:
                 self._log("text", text, ms)
                 if self.cfg.get("sound_on_dictation", False):
                     play_sound("dictation")
                 paste_text(text.strip())
+                if ap_tts and self.cfg.get("tts_on_dictation", False):
+                    from tts import speak as _tts_speak
+                    _tts_speak(text.strip(), tts_voice)
 
         def stop_and_process():
             if not self._recording.is_set():

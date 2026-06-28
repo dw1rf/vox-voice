@@ -310,27 +310,9 @@ class AutopilotAgent:
         self._status("ready", "")
 
     def _speak(self, text: str):
-        """Озвучить текст через Windows SAPI5 (Elena/Irina если установлены)."""
-        safe = text.replace('"', "'").replace("\n", " ").strip()[:500]
-        if not safe:
-            return
-        ps = (
-            "Add-Type -AssemblyName System.Speech; "
-            "$s=New-Object System.Speech.Synthesis.SpeechSynthesizer; "
-            "$v=($s.GetInstalledVoices().VoiceInfo|"
-            "Where-Object{$_.Name -like '*Elena*' -or $_.Name -like '*Irina*'}|"
-            "Select-Object -First 1); "
-            "if($v){$s.SelectVoice($v.Name)}; "
-            f'$s.Speak("{safe}")'
-        )
-        try:
-            subprocess.Popen(
-                ["powershell", "-WindowStyle", "Hidden", "-Command", ps],
-                creationflags=subprocess.CREATE_NO_WINDOW,
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            )
-        except Exception:
-            pass
+        from tts import speak
+        voice = self.cfg.get("tts_voice") or "ru-RU-SvetlanaNeural"
+        speak(text, voice)
 
     @staticmethod
     def _field(obj, name):

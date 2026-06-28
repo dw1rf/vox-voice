@@ -150,6 +150,8 @@ function applyConfigToUI() {
   $("#ap-host").value = ap.host || "http://localhost:11434";
   $("#ap-iters").value = ap.max_iterations || 5;
   $("#ap-tts").checked = !!ap.tts_enabled;
+  $("#ap-tts-voice").value = ap.tts_voice || "ru-RU-SvetlanaNeural";
+  $("#ap-tts-dictation").checked = !!ap.tts_on_dictation;
   $("#ap-wake-hint").textContent = ((ap.wake_words || ["клод"])[0] || "клод")
     .replace(/^./, (m) => m.toUpperCase());
   $("#ap-state").textContent = ap.enabled !== false ? "включён" : "выключен";
@@ -378,6 +380,8 @@ function saveAutopilot() {
   ap.host = $("#ap-host").value.trim() || "http://localhost:11434";
   ap.max_iterations = parseInt($("#ap-iters").value, 10) || 5;
   ap.tts_enabled = $("#ap-tts").checked;
+  ap.tts_voice = $("#ap-tts-voice").value || "ru-RU-SvetlanaNeural";
+  ap.tts_on_dictation = $("#ap-tts-dictation").checked;
   persist(() => {
     applyConfigToUI();
     toast("Автопилот сохранён. Перезапусти приложение, если менял модель/сервер.");

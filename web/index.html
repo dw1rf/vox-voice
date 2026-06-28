@@ -191,9 +191,27 @@
           <div class="panel toggle-card">
             <div>
               <label>Голосовые ответы (TTS)</label>
-              <p class="muted sm">Автопилот озвучивает текстовые ответы через SAPI5 (Elena/Irina).</p>
+              <p class="muted sm">Озвучивать команды и ответы автопилота нейросетевым голосом Edge.</p>
             </div>
             <label class="switch"><input type="checkbox" id="ap-tts" /><span class="slider"></span></label>
+          </div>
+
+          <div class="panel field">
+            <label>Голос</label>
+            <p class="muted sm">Microsoft Neural — высокое качество, нужен интернет.</p>
+            <select id="ap-tts-voice">
+              <option value="ru-RU-SvetlanaNeural">Светлана (жен., мягкий)</option>
+              <option value="ru-RU-DariyaNeural">Дарья (жен., живой)</option>
+              <option value="ru-RU-DmitryNeural">Дмитрий (муж., спокойный)</option>
+            </select>
+          </div>
+
+          <div class="panel toggle-card">
+            <div>
+              <label>Озвучивать диктовку</label>
+              <p class="muted sm">Голос повторяет распознанный текст (эхо-подтверждение).</p>
+            </div>
+            <label class="switch"><input type="checkbox" id="ap-tts-dictation" /><span class="slider"></span></label>
           </div>
         </div>
       </section>
