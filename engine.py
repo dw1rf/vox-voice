@@ -46,6 +46,7 @@ DEFAULT_CONFIG = {
     "wake_always_on": False,
     "wake_model": "tiny",
     "wake_listen_sec": 5,
+    "clip_auto_words": 0,
     "samplerate": 16000,
     "add_trailing_space": True,
     "initial_prompt": "Клод, Яндекс, Гитхаб, Эдж, Ютуб",
@@ -405,6 +406,32 @@ class DictationEngine:
                 if ap_tts and self.cfg.get("tts_on_dictation", False):
                     from tts import speak as _tts_speak
                     _tts_speak(text.strip(), tts_voice)
+                # Авто-Clipboard AI: если текст длиннее порога — показать попап
+                clip_auto_words = int(self.cfg.get("clip_auto_words", 0))
+                if clip_auto_words > 0 and len(text.split()) >= clip_auto_words:
+                    def _auto_clip():
+                        time.sleep(0.3)  # дать тексту вставиться
+                        keyboard.send("ctrl+a")
+                        time.sleep(0.1)
+                        keyboard.send("ctrl+c")
+                        time.sleep(0.12)
+                        try:
+                            selected = pyperclip.paste().strip()
+                        except Exception:
+                            selected = text.strip()
+                        if not selected:
+                            selected = text.strip()
+                        t64 = base64.b64encode(selected.encode("utf-8")).decode("ascii")
+                        venv_py = ROOT / "venv" / "Scripts" / "python.exe"
+                        py_exec = str(venv_py) if venv_py.exists() else sys.executable
+                        try:
+                            subprocess.Popen(
+                                [py_exec, str(ROOT / "clipboard_popup.py"), t64, str(CONFIG_PATH)],
+                                creationflags=subprocess.CREATE_NO_WINDOW,
+                            )
+                        except Exception as ex:
+                            self._log("info", f"Auto Clipboard AI ошибка: {ex}")
+                    threading.Thread(target=_auto_clip, daemon=True).start()
 
         def stop_and_process():
             if not self._recording.is_set():

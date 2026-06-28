@@ -330,6 +330,12 @@
           </div>
 
           <div class="panel field">
+            <label>Авто-Clipboard AI после диктовки (слов)</label>
+            <p class="muted sm">Если надиктовано ≥ N слов — автоматически откроется попап ИИ. 0 = выключено.</p>
+            <input id="set-clip-auto" type="number" min="0" max="200" />
+          </div>
+
+          <div class="panel field">
             <label>Порог нечёткого поиска команд (%)</label>
             <p class="muted sm">Если фраза похожа на команду на N% — выполняется. 100 = только точное совпадение.</p>
             <input id="set-fuzzy" type="number" min="50" max="100" />

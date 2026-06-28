@@ -137,6 +137,7 @@ function applyConfigToUI() {
 
   // clipboard hotkey
   const clipLabel = c.clipboard_hotkey_label || friendlyKey(c.clipboard_hotkey || "f9");
+  $("#set-clip-auto").value = c.clip_auto_words != null ? c.clip_auto_words : 0;
   $("#set-clip-hotkey").value = c.clipboard_hotkey || "f9";
   $("#set-clip-hotkey-label").value = clipLabel;
 
@@ -342,6 +343,7 @@ function collectSettings() {
   const c = state.config;
   c.hotkey = $("#set-hotkey").value;
   c.hotkey_label = $("#set-hotkey-label").value;
+  c.clip_auto_words = parseInt($("#set-clip-auto").value, 10) || 0;
   c.clipboard_hotkey = $("#set-clip-hotkey").value || "f9";
   c.clipboard_hotkey_label = $("#set-clip-hotkey-label").value || "F9";
   c.fuzzy_threshold = parseInt($("#set-fuzzy").value, 10) || 80;
