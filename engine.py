@@ -79,7 +79,7 @@ DEFAULT_CONFIG = {
         "host": "http://localhost:11434",
         "wake_words": ["клод", "клода", "клот", "слушай"],
         "max_iterations": 5,
-        "tts_enabled": False,
+        "tts_enabled": True,
         "tts_voice": "ru-RU-SvetlanaNeural",
         "tts_on_dictation": False,
     },
@@ -132,6 +132,8 @@ def load_config():
     if "commands" not in cfg:
         merged["commands"] = DEFAULT_CONFIG["commands"]
     merged["commands"] = migrate_commands(merged.get("commands", {}))
+    # Deep-merge autopilot: дефолтные ключи не должны пропадать при частичном сохранении.
+    merged["autopilot"] = {**DEFAULT_CONFIG["autopilot"], **(cfg.get("autopilot") or {})}
     save_config(merged)
     return merged
 
