@@ -132,38 +132,9 @@ class AutopilotAgent:
         self.cfg = cfg or {}
         self.executors = executors
         self.emit = emit
-        self._history = []  # rolling conversation history (clean user/assistant pairs)
 
     def clear_history(self):
-        self._history = []
-
-    def _build_system(self) -> str:
-        """Системный промпт + контекст текущего состояния экрана."""
-        import datetime
-        ctx = "\nТекущее время: " + datetime.datetime.now().strftime("%d.%m.%Y %H:%M") + "."
-        try:
-            import ctypes
-            buf = ctypes.create_unicode_buffer(256)
-            ctypes.windll.user32.GetWindowTextW(
-                ctypes.windll.user32.GetForegroundWindow(), buf, 256)
-            win = buf.value.strip()
-            if win and win != "Vox":
-                ctx += f" Активное окно: «{win}»."
-        except Exception:
-            pass
-        return SYSTEM_PROMPT + ctx
-
-    @staticmethod
-    def _is_garbage(text: str) -> bool:
-        """Проверить, является ли ответ мусором (повторяющиеся символы — деградация модели)."""
-        if not text or len(text) < 4:
-            return False
-        from collections import Counter
-        counts = Counter(text.replace(" ", ""))
-        if not counts:
-            return False
-        top_ratio = counts.most_common(1)[0][1] / max(len(text), 1)
-        return top_ratio > 0.45  # >45% одного символа — деградация
+        pass  # контекст отключён
 
     def _log(self, kind, text, ms=None):
         self.emit("log", {"kind": kind, "text": text, "ms": ms})
@@ -268,7 +239,7 @@ class AutopilotAgent:
             return f"ошибка: {e}"
 
     def handle(self, text):
-        """Обработать запрос пользователя. Два прохода: с историей, затем без при деградации."""
+        """Обработать запрос пользователя через агентный цикл."""
         is_groq = self.provider() == "groq"
         default_model = "llama-3.3-70b-versatile" if is_groq else "qwen2.5:7b"
         model = self.cfg.get("model") or default_model
@@ -277,28 +248,13 @@ class AutopilotAgent:
         self._status("thinking", "Думаю…")
         self._log("autopilot", f"запрос: {text}")
 
-        for _pass in range(2):
-            use_history = _pass == 0 and bool(self._history)
-            outcome = self._run_agent(text, model, max_iters, is_groq, use_history)
-            if outcome != "garbage":
-                break
-            self._history.clear()
-            if _pass == 0:
-                self._log("info", "Автопилот: контекст сброшен, повтор запроса…")
-
-        self._status("ready", "")
-
-    def _run_agent(self, text, model, max_iters, is_groq, use_history):
-        """Один проход агентного цикла. Возвращает 'garbage' при деградации модели."""
-        messages = [{"role": "system", "content": self._build_system()}]
-        if use_history:
-            messages.extend(self._history[-16:])
-        messages.append({"role": "user", "content": text})
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": text},
+        ]
 
         did_action = False
-        final_reply = None
         seen = set()
-
         for _ in range(max_iters):
             try:
                 msg = self._chat(model, messages, TOOLS)
@@ -325,13 +281,9 @@ class AutopilotAgent:
 
             if not tool_calls:
                 if content.strip():
-                    reply = content.strip()
-                    if self._is_garbage(reply):
-                        return "garbage"
-                    final_reply = reply
-                    self._log("reply", final_reply)
+                    self._log("reply", content.strip())
                     if self.cfg.get("tts_enabled"):
-                        threading.Thread(target=self._speak, args=(final_reply,), daemon=True).start()
+                        threading.Thread(target=self._speak, args=(content.strip(),), daemon=True).start()
                 break
 
             new_action = False
@@ -360,17 +312,9 @@ class AutopilotAgent:
             if not new_action:
                 break
 
-        if not did_action and not final_reply:
+        if not did_action:
             self._log("info", "Автопилот: подходящих действий не найдено.")
-
-        # Сохраняем только текстовые реплики — действия в историю не пишем.
-        if final_reply:
-            self._history.append({"role": "user", "content": text})
-            self._history.append({"role": "assistant", "content": final_reply})
-            if len(self._history) > 16:
-                self._history = self._history[-16:]
-
-        return None
+        self._status("ready", "")
 
     def _speak(self, text: str):
         from tts import speak

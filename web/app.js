@@ -398,10 +398,6 @@ $("#cmd-modal").addEventListener("click", (e) => {
 });
 $("#save-settings").addEventListener("click", saveSettings);
 $("#save-autopilot").addEventListener("click", saveAutopilot);
-$("#clear-ap-context").addEventListener("click", async () => {
-  await window.pywebview.api.clear_autopilot_history();
-  toast("Контекст разговора сброшен");
-});
 
 // ---- Захват горячих клавиш ----
 function friendlyKey(h) {
