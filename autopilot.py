@@ -148,12 +148,22 @@ class AutopilotAgent:
                 ctypes.windll.user32.GetForegroundWindow(), buf, 256)
             win = buf.value.strip()
             if win and win != "Vox":
-                ctx += f" Активное окно пользователя: «{win}»."
+                ctx += f" Активное окно: «{win}»."
         except Exception:
             pass
-        if self._history:
-            ctx += f" У нас уже есть {len(self._history) // 2} реплик в этом разговоре — помни контекст."
         return SYSTEM_PROMPT + ctx
+
+    @staticmethod
+    def _is_garbage(text: str) -> bool:
+        """Проверить, является ли ответ моделью мусором (повторяющиеся символы и т.п.)."""
+        if not text or len(text) < 4:
+            return False
+        from collections import Counter
+        counts = Counter(text.replace(" ", ""))
+        if not counts:
+            return False
+        top_ratio = counts.most_common(1)[0][1] / max(len(text), 1)
+        return top_ratio > 0.45  # >45% одного символа — деградация
 
     def _log(self, kind, text, ms=None):
         self.emit("log", {"kind": kind, "text": text, "ms": ms})
@@ -296,9 +306,15 @@ class AutopilotAgent:
             if not tool_calls:
                 if content.strip():
                     final_reply = content.strip()
-                    self._log("reply", final_reply)
-                    if self.cfg.get("tts_enabled"):
-                        threading.Thread(target=self._speak, args=(final_reply,), daemon=True).start()
+                    if self._is_garbage(final_reply):
+                        # Деградация модели — сбрасываем историю чтобы не отравлять след. запросы.
+                        self._history.clear()
+                        self._log("info", "Автопилот: получен некорректный ответ, контекст сброшен.")
+                        final_reply = None
+                    else:
+                        self._log("reply", final_reply)
+                        if self.cfg.get("tts_enabled"):
+                            threading.Thread(target=self._speak, args=(final_reply,), daemon=True).start()
                 break
 
             new_action = False
@@ -332,15 +348,13 @@ class AutopilotAgent:
             self._log("info", "Автопилот: подходящих действий не найдено.")
         self._status("ready", "")
 
-        # Сохраняем только чистые реплики (без tool_call деталей) для следующих запросов.
-        self._history.append({"role": "user", "content": text})
+        # Сохраняем в историю только текстовые реплики (без tool_call деталей).
+        # Действия (open_url, run_app и т.п.) в историю не пишем — мелкие модели путаются.
         if final_reply:
+            self._history.append({"role": "user", "content": text})
             self._history.append({"role": "assistant", "content": final_reply})
-        elif did_action:
-            # Если были только действия — краткое резюме чтобы модель помнила что сделала.
-            self._history.append({"role": "assistant", "content": "Готово."})
-        if len(self._history) > 20:  # максимум 10 пар
-            self._history = self._history[-20:]
+            if len(self._history) > 16:  # максимум 8 пар
+                self._history = self._history[-16:]
 
     def _speak(self, text: str):
         from tts import speak
