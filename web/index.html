@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vox</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- Боковая навигация -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">Vox</span>
+          <span class="brand-sub">voice ai</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-view="dashboard">
+          <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></span><span>Дашборд</span>
+        </button>
+        <button class="nav-item" data-view="commands">
+          <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span><span>Команды</span>
+        </button>
+        <button class="nav-item" data-view="autopilot">
+          <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg></span><span>Автопилот</span>
+        </button>
+        <button class="nav-item" data-view="history">
+          <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span><span>История</span>
+        </button>
+        <button class="nav-item" data-view="settings">
+          <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/></svg></span><span>Настройки</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="chip" id="chip-device">GPU</div>
+        <div class="chip ghost" id="chip-model">large-v3</div>
+      </div>
+    </aside>
+
+    <!-- Основная область -->
+    <main class="main">
+      <!-- ДАШБОРД -->
+      <section class="view" id="view-dashboard">
+        <div class="hero">
+          <div class="hero-glow"></div>
+          <div class="mic-wrap" id="mic-wrap">
+            <div class="pulse"></div>
+            <div class="pulse delay"></div>
+            <div class="mic" id="mic-circle">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+            </div>
+          </div>
+          <div class="hero-info">
+            <div class="status-pill" id="status-pill">
+              <span class="dot"></span><span id="status-label">Запуск…</span>
+            </div>
+            <h1 class="hero-title" id="status-text">Загрузка модели…</h1>
+            <p class="hero-hint">
+              Зажми <kbd id="hotkey-kbd">F7</kbd>, говори, отпусти —
+              текст вставится в активное окно, а команда выполнится.
+            </p>
+          </div>
+        </div>
+
+        <div class="stat-row">
+          <div class="stat-card grad-violet">
+            <span class="stat-label">Команд</span>
+            <span class="stat-value" id="stat-commands">0</span>
+          </div>
+          <div class="stat-card grad-blue">
+            <span class="stat-label">Распознано</span>
+            <span class="stat-value" id="stat-recognized">0</span>
+          </div>
+          <div class="stat-card grad-green">
+            <span class="stat-label">Команд выполнено</span>
+            <span class="stat-value" id="stat-executed">0</span>
+          </div>
+          <div class="stat-card grad-orange">
+            <span class="stat-label">Сред. время</span>
+            <span class="stat-value" id="stat-avg">—</span>
+          </div>
+        </div>
+
+        <div class="panel log-panel">
+          <div class="panel-head">
+            <h2>Журнал</h2>
+            <button class="btn-ghost" id="clear-log">Очистить</button>
+          </div>
+          <div class="log" id="log">
+            <div class="log-empty">Здесь появятся распознанные фразы и команды…</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- КОМАНДЫ -->
+      <section class="view hidden" id="view-commands">
+        <div class="view-head">
+          <div>
+            <h1>Голосовые команды</h1>
+            <p class="muted">Скажи фразу — выполнится действие. Всё остальное печатается как текст.</p>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn-ghost" id="import-commands">Импорт</button>
+            <button class="btn-ghost" id="export-commands">Экспорт</button>
+            <button class="btn-primary" id="add-command">+ Добавить</button>
+          </div>
+        </div>
+        <input type="file" id="import-file" accept=".json" style="display:none" />
+        <div class="panel">
+          <div class="cmd-table" id="cmd-table"></div>
+        </div>
+      </section>
+
+      <!-- АВТОПИЛОТ -->
+      <section class="view hidden" id="view-autopilot">
+        <div class="view-head">
+          <div>
+            <h1>Автопилот</h1>
+            <p class="muted">Скажи «<b id="ap-wake-hint">Клод</b>, …» и обычную просьбу — локальный ИИ сам выполнит действия. Полностью офлайн через Ollama.</p>
+          </div>
+          <button class="btn-primary" id="save-autopilot">Сохранить</button>
+        </div>
+
+        <div class="panel hero" style="margin-bottom:22px">
+          <div class="hero-glow"></div>
+          <div class="hero-info">
+            <div class="status-pill"><span class="dot" id="ap-dot"></span><span id="ap-state">проверка…</span></div>
+            <p class="hero-hint">
+              Примеры: «Клод, открой ютуб и сделай погромче», «Клод, найди погоду в Москве»,
+              «Клод, запусти блокнот и напечатай привет». Обычная диктовка по F7 работает как раньше.
+            </p>
+          </div>
+        </div>
+
+        <div class="settings-grid">
+          <div class="panel toggle-card">
+            <div>
+              <label>Включить автопилот</label>
+              <p class="muted sm">Перехват фраз со словом-обращением.</p>
+            </div>
+            <label class="switch"><input type="checkbox" id="ap-enabled" /><span class="slider"></span></label>
+          </div>
+
+          <div class="panel field">
+            <label>Слова-обращения</label>
+            <p class="muted sm">Через запятую. С них начинается просьба к ИИ.</p>
+            <input id="ap-wake" type="text" placeholder="клод, слушай" />
+          </div>
+
+          <div class="panel field">
+            <label>Провайдер</label>
+            <p class="muted sm">Groq — быстро, облако (нужен ключ). Ollama — локально, офлайн.</p>
+            <select id="ap-provider">
+              <option value="groq">Groq (облако, быстро)</option>
+              <option value="ollama">Ollama (локально)</option>
+            </select>
+          </div>
+
+          <div class="panel field">
+            <label>Модель</label>
+            <p class="muted sm">Groq: llama-3.3-70b-versatile / llama-3.1-8b-instant. Ollama: qwen2.5:7b.</p>
+            <input id="ap-model" type="text" list="ap-model-list" placeholder="llama-3.3-70b-versatile" />
+            <datalist id="ap-model-list"></datalist>
+          </div>
+
+          <div class="panel field full">
+            <label>API-ключ Groq</label>
+            <p class="muted sm">Хранится локально в config.json. Для Ollama не нужен.</p>
+            <input id="ap-key" type="password" placeholder="gsk_…" />
+          </div>
+
+          <div class="panel field">
+            <label>Сервер Ollama</label>
+            <p class="muted sm">Адрес локального сервера (только для Ollama).</p>
+            <input id="ap-host" type="text" placeholder="http://localhost:11434" />
+          </div>
+
+          <div class="panel field">
+            <label>Лимит шагов</label>
+            <p class="muted sm">Максимум действий за один запрос.</p>
+            <input id="ap-iters" type="number" min="1" max="15" />
+          </div>
+
+          <div class="panel toggle-card">
+            <div>
+              <label>Голосовые ответы (TTS)</label>
+              <p class="muted sm">Автопилот озвучивает текстовые ответы через SAPI5 (Elena/Irina).</p>
+            </div>
+            <label class="switch"><input type="checkbox" id="ap-tts" /><span class="slider"></span></label>
+          </div>
+        </div>
+      </section>
+
+      <!-- ИСТОРИЯ -->
+      <section class="view hidden" id="view-history">
+        <div class="view-head">
+          <div>
+            <h1>История</h1>
+            <p class="muted">Все распознанные фразы и команды за текущий сеанс (до 500).</p>
+          </div>
+          <button class="btn-ghost" id="clear-history">Очистить</button>
+        </div>
+        <div class="panel">
+          <input class="history-search" id="history-search" type="text" placeholder="Поиск по тексту…" />
+          <div class="history-list" id="history-list">
+            <div class="log-empty">Записей пока нет. Начни говорить.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- НАСТРОЙКИ -->
+      <section class="view hidden" id="view-settings">
+        <div class="view-head">
+          <div>
+            <h1>Настройки</h1>
+            <p class="muted">Изменения применяются сразу после сохранения.</p>
+          </div>
+          <button class="btn-primary" id="save-settings">Сохранить</button>
+        </div>
+
+        <div class="settings-grid">
+          <div class="panel field">
+            <label>Горячая клавиша диктовки</label>
+            <p class="muted sm">Нажми «Назначить» и любую клавишу. Зажал — говоришь, отпустил — обработалось.</p>
+            <div class="hotkey-bind">
+              <input id="set-hotkey-label" type="text" readonly placeholder="не задана" />
+              <button class="btn-ghost" id="hotkey-capture" type="button">Назначить</button>
+            </div>
+            <input id="set-hotkey" type="hidden" />
+          </div>
+
+          <div class="panel field">
+            <label>Горячая клавиша Clipboard AI</label>
+            <p class="muted sm">Выдели текст, нажми — появится AI-меню над курсором.</p>
+            <div class="hotkey-bind">
+              <input id="set-clip-hotkey-label" type="text" readonly placeholder="F9" />
+              <button class="btn-ghost" id="clip-hotkey-capture" type="button">Назначить</button>
+            </div>
+            <input id="set-clip-hotkey" type="hidden" />
+          </div>
+
+          <div class="panel field">
+            <label>Модель Whisper</label>
+            <p class="muted sm">Больше = точнее, но медленнее.</p>
+            <select id="set-model"></select>
+          </div>
+
+          <div class="panel field">
+            <label>Язык</label>
+            <p class="muted sm">Код языка распознавания.</p>
+            <input id="set-language" type="text" placeholder="ru" />
+          </div>
+
+          <div class="panel field">
+            <label>Beam size</label>
+            <p class="muted sm">Точность поиска (1–10).</p>
+            <input id="set-beam" type="number" min="1" max="10" />
+          </div>
+
+          <div class="panel field full">
+            <label>Подсказка модели (initial prompt)</label>
+            <p class="muted sm">Слова/имена для лучшего распознавания.</p>
+            <input id="set-prompt" type="text" />
+          </div>
+
+          <div class="panel toggle-card">
+            <div>
+              <label>Звук на команду</label>
+              <p class="muted sm">Сигнал при выполнении команды.</p>
+            </div>
+            <label class="switch"><input type="checkbox" id="set-sound-cmd" /><span class="slider"></span></label>
+          </div>
+
+          <div class="panel toggle-card">
+            <div>
+              <label>Звук на диктовку</label>
+              <p class="muted sm">Сигнал при вставке текста.</p>
+            </div>
+            <label class="switch"><input type="checkbox" id="set-sound-dict" /><span class="slider"></span></label>
+          </div>
+
+          <div class="panel toggle-card">
+            <div>
+              <label>Пробел после текста</label>
+              <p class="muted sm">Добавлять пробел в конце вставки.</p>
+            </div>
+            <label class="switch"><input type="checkbox" id="set-space" /><span class="slider"></span></label>
+          </div>
+
+          <div class="panel field">
+            <label>Порог нечёткого поиска команд (%)</label>
+            <p class="muted sm">Если фраза похожа на команду на N% — выполняется. 100 = только точное совпадение.</p>
+            <input id="set-fuzzy" type="number" min="50" max="100" />
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Модалка редактора команды -->
+  <div class="modal-overlay hidden" id="cmd-modal">
+    <div class="modal">
+      <h2 id="cmd-modal-title">Команда</h2>
+      <div class="field">
+        <label>Фраза</label>
+        <input id="cmd-phrase" type="text" placeholder="например: открой ютуб" />
+      </div>
+      <div class="field">
+        <label>Звук на эту команду</label>
+        <select id="cmd-sound">
+          <option value="">По умолчанию</option>
+          <option value="on">Включить</option>
+          <option value="off">Выключить</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Действия — выполняются по порядку</label>
+        <p class="muted sm">Сайт, программа, клавиши, текст или пауза. Переставляй ↑↓.</p>
+        <div id="cmd-actions-list" class="actions-list"></div>
+        <button class="btn-ghost" id="cmd-add-action" type="button" style="margin-top:8px">+ Действие</button>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="cmd-cancel">Отмена</button>
+        <button class="btn-primary" id="cmd-save">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast hidden" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

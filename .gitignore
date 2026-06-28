@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+sounds/
+web/fonts/
+*.wav
+*.mp3
+.env
+config.json
