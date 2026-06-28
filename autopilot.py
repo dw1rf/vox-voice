@@ -132,6 +132,28 @@ class AutopilotAgent:
         self.cfg = cfg or {}
         self.executors = executors
         self.emit = emit
+        self._history = []  # rolling conversation history (clean user/assistant pairs)
+
+    def clear_history(self):
+        self._history = []
+
+    def _build_system(self) -> str:
+        """Системный промпт + контекст текущего состояния экрана."""
+        import datetime
+        ctx = "\nТекущее время: " + datetime.datetime.now().strftime("%d.%m.%Y %H:%M") + "."
+        try:
+            import ctypes
+            buf = ctypes.create_unicode_buffer(256)
+            ctypes.windll.user32.GetWindowTextW(
+                ctypes.windll.user32.GetForegroundWindow(), buf, 256)
+            win = buf.value.strip()
+            if win and win != "Vox":
+                ctx += f" Активное окно пользователя: «{win}»."
+        except Exception:
+            pass
+        if self._history:
+            ctx += f" У нас уже есть {len(self._history) // 2} реплик в этом разговоре — помни контекст."
+        return SYSTEM_PROMPT + ctx
 
     def _log(self, kind, text, ms=None):
         self.emit("log", {"kind": kind, "text": text, "ms": ms})
@@ -239,12 +261,12 @@ class AutopilotAgent:
         self._status("thinking", "Думаю…")
         self._log("autopilot", f"запрос: {text}")
 
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": text},
-        ]
+        messages = [{"role": "system", "content": self._build_system()}]
+        messages.extend(self._history[-16:])  # последние 8 пар user/assistant
+        messages.append({"role": "user", "content": text})
 
         did_action = False
+        final_reply = None  # финальный текстовый ответ модели для сохранения в историю
         seen = set()  # против зацикливания: каждое действие выполняем один раз
         for _ in range(max_iters):
             try:
@@ -273,9 +295,10 @@ class AutopilotAgent:
 
             if not tool_calls:
                 if content.strip():
-                    self._log("reply", content.strip())
+                    final_reply = content.strip()
+                    self._log("reply", final_reply)
                     if self.cfg.get("tts_enabled"):
-                        threading.Thread(target=self._speak, args=(content.strip(),), daemon=True).start()
+                        threading.Thread(target=self._speak, args=(final_reply,), daemon=True).start()
                 break
 
             new_action = False
@@ -308,6 +331,16 @@ class AutopilotAgent:
         if not did_action:
             self._log("info", "Автопилот: подходящих действий не найдено.")
         self._status("ready", "")
+
+        # Сохраняем только чистые реплики (без tool_call деталей) для следующих запросов.
+        self._history.append({"role": "user", "content": text})
+        if final_reply:
+            self._history.append({"role": "assistant", "content": final_reply})
+        elif did_action:
+            # Если были только действия — краткое резюме чтобы модель помнила что сделала.
+            self._history.append({"role": "assistant", "content": "Готово."})
+        if len(self._history) > 20:  # максимум 10 пар
+            self._history = self._history[-20:]
 
     def _speak(self, text: str):
         from tts import speak

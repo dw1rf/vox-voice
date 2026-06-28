@@ -56,7 +56,7 @@ class Api:
 
     def _on_emit(self, event, payload):
         """Перехватывает события: пишет историю, затем шлёт в JS."""
-        if event == "log" and payload.get("kind") in ("text", "command", "autopilot"):
+        if event == "log" and payload.get("kind") in ("text", "command", "autopilot", "reply"):
             self._history.insert(0, {
                 "kind": payload["kind"],
                 "text": payload["text"],
@@ -112,6 +112,12 @@ class Api:
 
     def clear_history(self):
         self._history.clear()
+        return {"ok": True}
+
+    def clear_autopilot_history(self):
+        """Сбросить разговорный контекст автопилота."""
+        if self.engine._agent is not None:
+            self.engine._agent.clear_history()
         return {"ok": True}
 
     def export_commands(self):
