@@ -201,6 +201,7 @@ kbd {
 .tag-command   { background:rgba(89,212,153,.14);  color:var(--green); }
 .tag-info      { background:var(--hover);          color:var(--txt-dim); }
 .tag-autopilot { background:rgba(198,242,78,.14);  color:var(--accent); }
+.tag-reply     { background:rgba(245,177,76,.14);   color:var(--amber); }
 .log-text { flex:1; font-size:13.5px; min-width:0; }
 .log-ms { font-size:11.5px; color:var(--txt-mute); flex:0 0 auto; font-variant-numeric:tabular-nums; }
 

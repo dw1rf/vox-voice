@@ -1,21 +1,26 @@
 # -*- coding: utf-8 -*-
 """
-Общий модуль TTS: Microsoft Edge Neural voices через edge-tts + pygame.
-Используется engine.py (подтверждение команд) и autopilot.py (ответы агента).
+TTS через изолированный subprocess (_tts_worker.py).
+Запускает отдельный Python-процесс для воспроизведения, чтобы избежать
+конфликтов pygame/asyncio внутри pywebview.
 """
-import os
-import asyncio
-import tempfile
+import sys
+import base64
+import subprocess
 import threading
+from pathlib import Path
 
-_lock = threading.Lock()   # только один TTS за раз
+ROOT = Path(__file__).resolve().parent
+_WORKER = ROOT / "_tts_worker.py"
 
 VOICES = {
-    "Светлана (жен.)":  "ru-RU-SvetlanaNeural",
-    "Дарья (жен.)":     "ru-RU-DariyaNeural",
-    "Дмитрий (муж.)":   "ru-RU-DmitryNeural",
+    "Светлана (жен.)": "ru-RU-SvetlanaNeural",
+    "Дарья (жен.)":    "ru-RU-DariyaNeural",
+    "Дмитрий (муж.)":  "ru-RU-DmitryNeural",
 }
 DEFAULT_VOICE = "ru-RU-SvetlanaNeural"
+
+_lock = threading.Lock()   # только один TTS за раз
 
 
 def speak(text: str, voice: str = DEFAULT_VOICE):
@@ -29,30 +34,14 @@ def speak(text: str, voice: str = DEFAULT_VOICE):
 def _run(text: str, voice: str):
     with _lock:
         try:
-            asyncio.run(_tts_async(text, voice))
-        except Exception:
-            pass
-
-
-async def _tts_async(text: str, voice: str):
-    import edge_tts
-    import pygame
-
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False, prefix="vox_") as f:
-        tmp = f.name
-    try:
-        await edge_tts.Communicate(text, voice).save(tmp)
-
-        if not pygame.mixer.get_init():
-            pygame.mixer.init()
-        pygame.mixer.music.stop()
-        pygame.mixer.music.load(tmp)
-        pygame.mixer.music.play()
-        while pygame.mixer.music.get_busy():
-            pygame.time.Clock().tick(10)
-        pygame.mixer.music.unload()
-    finally:
-        try:
-            os.unlink(tmp)
-        except Exception:
-            pass
+            t64 = base64.b64encode(text.encode("utf-8")).decode("ascii")
+            venv_py = ROOT / "venv" / "Scripts" / "python.exe"
+            py = str(venv_py) if venv_py.exists() else sys.executable
+            flags = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0
+            proc = subprocess.Popen(
+                [py, str(_WORKER), t64, voice],
+                creationflags=flags,
+            )
+            proc.wait(timeout=30)
+        except Exception as e:
+            print(f"[TTS] ошибка: {e}", file=sys.stderr)

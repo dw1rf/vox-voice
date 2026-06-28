@@ -50,7 +50,7 @@ function onLog({ kind, text, ms }) {
   const item = document.createElement("div");
   item.className = "log-item";
   const tagLabel = kind === "command" ? "команда" : kind === "text" ? "текст"
-    : kind === "autopilot" ? "авто" : "инфо";
+    : kind === "autopilot" ? "авто" : kind === "reply" ? "ответ" : "инфо";
   item.innerHTML = `
     <span class="log-tag tag-${kind}">${tagLabel}</span>
     <span class="log-text"></span>
@@ -508,7 +508,8 @@ function renderHistory() {
   }
   list.innerHTML = "";
   items.forEach((h) => {
-    const tagLabel = h.kind === "command" ? "команда" : h.kind === "autopilot" ? "авто" : "текст";
+    const tagLabel = h.kind === "command" ? "команда" : h.kind === "autopilot" ? "авто"
+      : h.kind === "reply" ? "ответ" : "текст";
     const row = document.createElement("div");
     row.className = "log-item";
     row.innerHTML = `
@@ -545,7 +546,7 @@ document.querySelector('.nav-item[data-view="history"]').addEventListener("click
 // Обновляем _history при новых log-событиях (синхронно с onLog)
 const _origOnLog = onLog;
 window.__onLogHook = function ({ kind, text, ms }) {
-  if (kind === "text" || kind === "command" || kind === "autopilot") {
+  if (kind === "text" || kind === "command" || kind === "autopilot" || kind === "reply") {
     const ts = new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     _history.unshift({ kind, text, ms, ts });
     if (_history.length > 500) _history.pop();

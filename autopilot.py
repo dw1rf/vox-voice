@@ -273,7 +273,7 @@ class AutopilotAgent:
 
             if not tool_calls:
                 if content.strip():
-                    self._log("autopilot", content.strip())
+                    self._log("reply", content.strip())
                     if self.cfg.get("tts_enabled"):
                         threading.Thread(target=self._speak, args=(content.strip(),), daemon=True).start()
                 break
