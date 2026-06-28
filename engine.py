@@ -341,6 +341,15 @@ class DictationEngine:
                 except Exception:
                     pass
 
+        def active_window_title() -> str:
+            try:
+                buf = ctypes.create_unicode_buffer(256)
+                ctypes.windll.user32.GetWindowTextW(
+                    ctypes.windll.user32.GetForegroundWindow(), buf, 256)
+                return buf.value.strip()
+            except Exception:
+                return ""
+
         def handle(text, ms):
             norm = normalize(text)
             if not norm:
@@ -354,12 +363,21 @@ class DictationEngine:
                         play_sound("command")
                     self._agent.handle(rest or text)
                     return
+
+            # Команды для активного окна: window_commands: {"chrome": {...}, "code": {...}}
+            win_title = active_window_title().lower()
+            win_cmds = {}
+            for pattern, cmds in (self.cfg.get("window_commands") or {}).items():
+                if pattern.lower() in win_title:
+                    win_cmds.update(migrate_commands(cmds))
+            effective = {**self.commands, **{normalize(k): v for k, v in win_cmds.items()}}
+
             matched_key = None
-            if norm in self.commands:
+            if norm in effective:
                 matched_key = norm
-            elif _FUZZY_OK and self.commands:
+            elif _FUZZY_OK and effective:
                 threshold = int(self.cfg.get("fuzzy_threshold", 80))
-                hit = _rfprocess.extractOne(norm, self.commands.keys(),
+                hit = _rfprocess.extractOne(norm, effective.keys(),
                                             scorer=_rffuzz.token_sort_ratio)
                 if hit and hit[1] >= threshold:
                     matched_key = hit[0]
@@ -370,7 +388,7 @@ class DictationEngine:
             tts_voice = self.cfg.get("autopilot", {}).get("tts_voice", "ru-RU-SvetlanaNeural")
 
             if matched_key is not None:
-                cmd = self.commands[matched_key]
+                cmd = effective[matched_key]
                 self._log("command", text, ms)
                 snd = cmd.get("sound") if isinstance(cmd, dict) else None
                 if snd if snd is not None else self.cfg.get("sound_on_command", True):
