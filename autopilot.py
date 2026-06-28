@@ -155,7 +155,7 @@ class AutopilotAgent:
 
     @staticmethod
     def _is_garbage(text: str) -> bool:
-        """Проверить, является ли ответ моделью мусором (повторяющиеся символы и т.п.)."""
+        """Проверить, является ли ответ мусором (повторяющиеся символы — деградация модели)."""
         if not text or len(text) < 4:
             return False
         from collections import Counter
@@ -190,7 +190,7 @@ class AutopilotAgent:
             "messages": messages,
             "tools": tools,
             "tool_choice": "auto",
-            "temperature": 0.6,
+            "temperature": 0.3,
         }).encode("utf-8")
         req = urllib.request.Request(
             "https://api.groq.com/openai/v1/chat/completions", data=body,
@@ -218,6 +218,12 @@ class AutopilotAgent:
             "tools": tools,
             "stream": False,
             "keep_alive": "10m",
+            "options": {
+                "temperature": 0.2,
+                "top_p": 0.9,
+                "repeat_penalty": 1.3,
+                "num_ctx": 4096,
+            },
         }).encode("utf-8")
         req = urllib.request.Request(
             host + "/api/chat", data=body,
@@ -262,7 +268,7 @@ class AutopilotAgent:
             return f"ошибка: {e}"
 
     def handle(self, text):
-        """Обработать запрос пользователя через агентный цикл."""
+        """Обработать запрос пользователя. Два прохода: с историей, затем без при деградации."""
         is_groq = self.provider() == "groq"
         default_model = "llama-3.3-70b-versatile" if is_groq else "qwen2.5:7b"
         model = self.cfg.get("model") or default_model
@@ -271,13 +277,28 @@ class AutopilotAgent:
         self._status("thinking", "Думаю…")
         self._log("autopilot", f"запрос: {text}")
 
+        for _pass in range(2):
+            use_history = _pass == 0 and bool(self._history)
+            outcome = self._run_agent(text, model, max_iters, is_groq, use_history)
+            if outcome != "garbage":
+                break
+            self._history.clear()
+            if _pass == 0:
+                self._log("info", "Автопилот: контекст сброшен, повтор запроса…")
+
+        self._status("ready", "")
+
+    def _run_agent(self, text, model, max_iters, is_groq, use_history):
+        """Один проход агентного цикла. Возвращает 'garbage' при деградации модели."""
         messages = [{"role": "system", "content": self._build_system()}]
-        messages.extend(self._history[-16:])  # последние 8 пар user/assistant
+        if use_history:
+            messages.extend(self._history[-16:])
         messages.append({"role": "user", "content": text})
 
         did_action = False
-        final_reply = None  # финальный текстовый ответ модели для сохранения в историю
-        seen = set()  # против зацикливания: каждое действие выполняем один раз
+        final_reply = None
+        seen = set()
+
         for _ in range(max_iters):
             try:
                 msg = self._chat(model, messages, TOOLS)
@@ -296,7 +317,6 @@ class AutopilotAgent:
             content = self._field(msg, "content") or ""
             tool_calls = self._field(msg, "tool_calls") or []
 
-            # Сохраняем ход ассистента в историю (формат подходит обоим провайдерам).
             messages.append({
                 "role": "assistant",
                 "content": content,
@@ -305,16 +325,13 @@ class AutopilotAgent:
 
             if not tool_calls:
                 if content.strip():
-                    final_reply = content.strip()
-                    if self._is_garbage(final_reply):
-                        # Деградация модели — сбрасываем историю чтобы не отравлять след. запросы.
-                        self._history.clear()
-                        self._log("info", "Автопилот: получен некорректный ответ, контекст сброшен.")
-                        final_reply = None
-                    else:
-                        self._log("reply", final_reply)
-                        if self.cfg.get("tts_enabled"):
-                            threading.Thread(target=self._speak, args=(final_reply,), daemon=True).start()
+                    reply = content.strip()
+                    if self._is_garbage(reply):
+                        return "garbage"
+                    final_reply = reply
+                    self._log("reply", final_reply)
+                    if self.cfg.get("tts_enabled"):
+                        threading.Thread(target=self._speak, args=(final_reply,), daemon=True).start()
                 break
 
             new_action = False
@@ -325,7 +342,7 @@ class AutopilotAgent:
                 args = self._parse_args(raw_args)
                 key = name + "|" + json.dumps(args, sort_keys=True, ensure_ascii=False)
                 if key in seen:
-                    result = "уже выполнено"  # дубликат — не повторяем действие
+                    result = "уже выполнено"
                 else:
                     seen.add(key)
                     label = TOOL_LABELS.get(name, name)
@@ -337,24 +354,23 @@ class AutopilotAgent:
                     new_action = True
                 tr = {"role": "tool", "content": result}
                 if is_groq:
-                    tr["tool_call_id"] = self._field(call, "id")  # OpenAI требует id
+                    tr["tool_call_id"] = self._field(call, "id")
                 messages.append(tr)
 
-            # Модель только повторяет уже сделанное → завершаем.
             if not new_action:
                 break
 
-        if not did_action:
+        if not did_action and not final_reply:
             self._log("info", "Автопилот: подходящих действий не найдено.")
-        self._status("ready", "")
 
-        # Сохраняем в историю только текстовые реплики (без tool_call деталей).
-        # Действия (open_url, run_app и т.п.) в историю не пишем — мелкие модели путаются.
+        # Сохраняем только текстовые реплики — действия в историю не пишем.
         if final_reply:
             self._history.append({"role": "user", "content": text})
             self._history.append({"role": "assistant", "content": final_reply})
-            if len(self._history) > 16:  # максимум 8 пар
+            if len(self._history) > 16:
                 self._history = self._history[-16:]
+
+        return None
 
     def _speak(self, text: str):
         from tts import speak
